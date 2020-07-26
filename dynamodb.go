@@ -231,7 +231,7 @@ func InsertOne(ctx context.Context, db *dynamodb.DynamoDB, tableName string, key
 		return 0, err
 	}
 	if isExit {
-		return 0, fmt.Errorf("object already exists")
+		return 0, nil
 	}
 	modelMap, err := dynamodbattribute.MarshalMap(model)
 	if err != nil {
@@ -256,7 +256,7 @@ func InsertOneWithVersion(ctx context.Context, db *dynamodb.DynamoDB, tableName 
 		return 0, err
 	}
 	if isExit {
-		return 0, fmt.Errorf("object already exists")
+		return 0, nil
 	}
 
 	modelType := reflect.Indirect(reflect.ValueOf(model)).Type()

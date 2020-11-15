@@ -3,7 +3,6 @@ package dynamodb
 import (
 	"context"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
-	"github.com/common-go/search"
 	"reflect"
 )
 
@@ -18,6 +17,6 @@ func NewSearchService(db *dynamodb.DynamoDB, tableName string, modelType reflect
 	return &SearchService{db, tableName, modelType, searchBuilder}
 }
 
-func (s *SearchService) Search(ctx context.Context, m interface{}) (*search.SearchResult, error) {
+func (s *SearchService) Search(ctx context.Context, m interface{}) (interface{}, int64, error) {
 	return s.searchBuilder.BuildSearchResult(ctx, s.Database, m, s.modelType, s.tableName)
 }

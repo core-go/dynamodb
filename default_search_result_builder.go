@@ -2,38 +2,32 @@ package dynamodb
 
 import (
 	"context"
+	"fmt"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
-	"github.com/common-go/search"
+	"github.com/aws/aws-sdk-go/service/dynamodb/expression"
 	"reflect"
+	"strings"
 )
 
 type DefaultSearchResultBuilder struct {
-	QueryBuilder QueryBuilder
+	QueryBuilder      QueryBuilder
+	ExtractSearchInfo func(m interface{}) (string, int64, int64, int64, error)
 }
 
-func (b *DefaultSearchResultBuilder) BuildSearchResult(ctx context.Context, db *dynamodb.DynamoDB, m interface{}, modelType reflect.Type, tableName string, index SecondaryIndex) (*search.SearchResult, error) {
-	query, err := b.QueryBuilder.BuildQuery(m, modelType, tableName, index)
-	if err != nil {
-		return nil, err
+func (b *DefaultSearchResultBuilder) BuildSearchResult(ctx context.Context, db *dynamodb.DynamoDB, m interface{}, modelType reflect.Type, tableName string, index SecondaryIndex) (interface{}, int64, error) {
+	query, er1 := b.QueryBuilder.BuildQuery(m, modelType, tableName, index)
+	if er1 != nil {
+		return nil, 0, er1
 	}
-	var searchModel *search.SearchModel
-
-	if sModel, ok := m.(*search.SearchModel); ok {
-		searchModel = sModel
-	} else {
-		value := reflect.Indirect(reflect.ValueOf(m))
-		numField := value.NumField()
-		for i := 0; i < numField; i++ {
-			if sModel1, ok := value.Field(i).Interface().(*search.SearchModel); ok {
-				searchModel = sModel1
-			}
-		}
+	_, pageIndex, pageSize, firstPageSize, er2 := b.ExtractSearchInfo(m)
+	if er2 != nil {
+		return nil, 0, er2
 	}
-	return b.Build(ctx, db, modelType, query, searchModel.Page, searchModel.Limit, searchModel.FirstLimit)
+	return BuildSearchResult(ctx, db, modelType, query, pageIndex, pageSize, firstPageSize)
 }
 
-func (b *DefaultSearchResultBuilder) Build(ctx context.Context, db *dynamodb.DynamoDB, modelType reflect.Type, query dynamodb.QueryInput, pageIndex int64, pageSize int64, initPageSize int64) (*search.SearchResult, error) {
+func BuildSearchResult(ctx context.Context, db *dynamodb.DynamoDB, modelType reflect.Type, query dynamodb.QueryInput, pageIndex int64, pageSize int64, initPageSize int64) (interface{}, int64, error) {
 	var databaseQuery *dynamodb.QueryOutput
 	if initPageSize > 0 && pageIndex == 1 {
 		query.SetLimit(initPageSize)
@@ -50,31 +44,65 @@ func (b *DefaultSearchResultBuilder) Build(ctx context.Context, db *dynamodb.Dyn
 			return pageNum <= int(pageIndex)
 		})
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	modelsType := reflect.Zero(reflect.SliceOf(modelType)).Type()
 	results := reflect.New(modelsType).Interface()
 	err = dynamodbattribute.UnmarshalListOfMaps(databaseQuery.Items, results)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	count := *databaseQuery.Count
-	searchResult := search.SearchResult{}
-	searchResult.Total = count
-	searchResult.Last = false
-	lengthModels := int64(reflect.Indirect(reflect.ValueOf(results)).Len())
-	var receivedItems int64
-	if initPageSize > 0 {
-		if pageIndex == 1 {
-			receivedItems = initPageSize
-		} else if pageIndex > 1 {
-			receivedItems = pageSize*(pageIndex-2) + initPageSize + lengthModels
+	return results, count, nil
+}
+
+func BuildKeyCondition(sm interface{}, index SecondaryIndex, keyword string) (expression.KeyConditionBuilder, error) {
+	var keyCondition *expression.KeyConditionBuilder
+	var keyConditionBuilders []*expression.KeyConditionBuilder
+	objectValue := reflect.Indirect(reflect.ValueOf(sm))
+	objectModel := objectValue.Type()
+	for _, key := range index.Keys {
+		if i, _, ok := GetFieldByTagName(objectModel, key); ok {
+			fieldValue := reflect.Indirect(objectValue.Field(i))
+			if fieldValue.Kind() == reflect.String {
+				var builder expression.KeyConditionBuilder
+				if fieldValue.Len() > 0 {
+					if key, ok := objectValue.Type().Field(i).Tag.Lookup("match"); ok {
+						if key == PREFIX {
+							builder = expression.Key(key).BeginsWith(fieldValue.String())
+						} else {
+							return *keyCondition, fmt.Errorf("match not support \"%v\" format\n", key)
+						}
+					}
+				} else if len(keyword) > 0 {
+					if key, ok := objectValue.Type().Field(i).Tag.Lookup("keyword"); ok {
+						if key == PREFIX {
+							builder = expression.Key(key).BeginsWith(fieldValue.String())
+						} else {
+							return *keyCondition, fmt.Errorf("match not support \"%v\" format\n", key)
+						}
+					}
+				}
+				keyConditionBuilders = append(keyConditionBuilders, &builder)
+			} else {
+				t := fieldValue.Kind().String()
+				if (strings.Contains(t, "int") && fieldValue.Int() != 0) || (strings.Contains(t, "float") && fieldValue.Float() != 0) {
+					builder := expression.Key(key).Equal(expression.Value(fieldValue.Interface()))
+					keyConditionBuilders = append(keyConditionBuilders, &builder)
+				} else {
+					return *keyCondition, fmt.Errorf("key condition not support \"%v\" type\n", key)
+				}
+			}
+
 		}
-	} else {
-		receivedItems = pageSize*(pageIndex-1) + lengthModels
 	}
-	searchResult.Last = receivedItems >= count
-	searchResult.Results = results
-	return &searchResult, nil
+	for idx := range keyConditionBuilders {
+		if keyCondition == nil {
+			keyCondition = keyConditionBuilders[idx]
+		} else {
+			keyCondition.And(*keyConditionBuilders[idx])
+		}
+	}
+	return *keyCondition, nil
 }

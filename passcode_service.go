@@ -14,12 +14,24 @@ type PasscodeService struct {
 	expiredAtName string
 }
 
-func NewPasscodeService(db *dynamodb.DynamoDB, tableName, keyName, passcodeName, expiredAtName string) *PasscodeService {
+func NewPasscodeService(db *dynamodb.DynamoDB, tableName string, options ...string) *PasscodeService {
+	var keyName, passcodeName, expiredAtName string
+	if len(options) >= 1 && len(options[0]) > 0 {
+		expiredAtName = options[0]
+	} else {
+		expiredAtName = "expiredAt"
+	}
+	if len(options) >= 2 && len(options[1]) > 0 {
+		keyName = options[1]
+	} else {
+		keyName = "id"
+	}
+	if len(options) >= 3 && len(options[2]) > 0 {
+		passcodeName = options[2]
+	} else {
+		passcodeName = "passcode"
+	}
 	return &PasscodeService{db, tableName, keyName, passcodeName, expiredAtName}
-}
-
-func NewDefaultPasscodeService(db *dynamodb.DynamoDB, tableName string) *PasscodeService {
-	return NewPasscodeService(db, tableName, "_id", "passcode", "expiredAt")
 }
 
 func (s *PasscodeService) Save(ctx context.Context, id string, passcode string, expiredAt time.Time) (int64, error) {

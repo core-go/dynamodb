@@ -8,7 +8,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 )
 
-type ViewService struct {
+type Loader struct {
 	Database     *dynamodb.DynamoDB
 	tableName    string
 	modelType    reflect.Type
@@ -16,7 +16,7 @@ type ViewService struct {
 	sortKey      string
 }
 
-func NewViewService(db *dynamodb.DynamoDB, tableName string, modelType reflect.Type, partitionKeyName string, sortKeyName string) *ViewService {
+func NewLoader(db *dynamodb.DynamoDB, tableName string, modelType reflect.Type, partitionKeyName string, sortKeyName string) *Loader {
 	if len(partitionKeyName) == 0 {
 		log.Println(modelType.Name() + " repository can't use functions that need Id value (Ex GetById, ExistsById, Save, Update) because don't have any fields of " + modelType.Name() + " struct define _id bson tag.")
 	}
@@ -28,17 +28,17 @@ func NewViewService(db *dynamodb.DynamoDB, tableName string, modelType reflect.T
 	if !ok {
 		log.Println(modelType.Name() + " repository can't use functions that need Id value (Ex GetById, ExistsById, Save, Update) because don't have any fields of " + modelType.Name())
 	}
-	return &ViewService{db, tableName, modelType, partitionKey, sortKey}
+	return &Loader{db, tableName, modelType, partitionKey, sortKey}
 }
 
-func (m *ViewService) Keys() []string {
+func (m *Loader) Keys() []string {
 	if len(m.sortKey) != 0 {
 		return []string{m.partitionKey, m.sortKey}
 	}
 	return []string{m.partitionKey}
 }
 
-func (m *ViewService) All(ctx context.Context) (interface{}, error) {
+func (m *Loader) All(ctx context.Context) (interface{}, error) {
 	query, err := BuildQuery(m.tableName, SecondaryIndex{}, nil)
 	if err != nil {
 		return nil, err
@@ -46,14 +46,14 @@ func (m *ViewService) All(ctx context.Context) (interface{}, error) {
 	return Find(ctx, m.Database, query, m.modelType)
 }
 
-func (m *ViewService) Load(ctx context.Context, id interface{}) (interface{}, error) {
+func (m *Loader) Load(ctx context.Context, id interface{}) (interface{}, error) {
 	return FindOne(ctx, m.Database, m.tableName, m.modelType, m.Keys(), id)
 }
 
-func (m *ViewService) LoadAndDecode(ctx context.Context, id interface{}, result interface{}) (bool, error) {
+func (m *Loader) LoadAndDecode(ctx context.Context, id interface{}, result interface{}) (bool, error) {
 	return FindOneAndDecode(ctx, m.Database, m.tableName, m.Keys(), id, result)
 }
 
-func (m *ViewService) Exist(ctx context.Context, id interface{}) (bool, error) {
+func (m *Loader) Exist(ctx context.Context, id interface{}) (bool, error) {
 	return Exist(ctx, m.Database, m.tableName, m.Keys(), id)
 }

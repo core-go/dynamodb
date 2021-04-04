@@ -10,13 +10,18 @@ import (
 	"strings"
 )
 
-type DefaultSearchResultBuilder struct {
-	BuildQuery        func(sm interface{}, resultModelType reflect.Type, tableName string, index SecondaryIndex) (dynamodb.QueryInput, error)
+type SearchBuilder struct {
+	DB *dynamodb.DynamoDB
+	ModelType reflect.Type
+	BuildQuery        func(m interface{}) (dynamodb.QueryInput, error)
 	ExtractSearchInfo func(m interface{}) (string, int64, int64, int64, error)
 }
 
-func (b *DefaultSearchResultBuilder) BuildSearchResult(ctx context.Context, db *dynamodb.DynamoDB, m interface{}, modelType reflect.Type, tableName string, index SecondaryIndex) (interface{}, int64, error) {
-	query, er1 := b.BuildQuery(m, modelType, tableName, index)
+func NewSearchBuilder(db *dynamodb.DynamoDB, modelType reflect.Type, buildQuery func(interface{}) (dynamodb.QueryInput, error), extract func(m interface{}) (string, int64, int64, int64, error)) *SearchBuilder {
+	return &SearchBuilder{DB: db, ModelType: modelType, BuildQuery: buildQuery, ExtractSearchInfo: extract}
+}
+func (b *SearchBuilder) Search(ctx context.Context, m interface{}) (interface{}, int64, error) {
+	query, er1 := b.BuildQuery(m)
 	if er1 != nil {
 		return nil, 0, er1
 	}
@@ -24,7 +29,7 @@ func (b *DefaultSearchResultBuilder) BuildSearchResult(ctx context.Context, db *
 	if er2 != nil {
 		return nil, 0, er2
 	}
-	return BuildSearchResult(ctx, db, modelType, query, pageIndex, pageSize, firstPageSize)
+	return BuildSearchResult(ctx, b.DB, b.ModelType, query, pageIndex, pageSize, firstPageSize)
 }
 
 func BuildSearchResult(ctx context.Context, db *dynamodb.DynamoDB, modelType reflect.Type, query dynamodb.QueryInput, pageIndex int64, pageSize int64, initPageSize int64) (interface{}, int64, error) {

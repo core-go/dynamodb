@@ -1,12 +1,13 @@
 package dynamodb
 
 import (
+	"context"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"reflect"
 )
 
-func NewGenericSearchService(db *dynamodb.DynamoDB, tableName string, modelType reflect.Type, searchBuilder SearchResultBuilder, partitionKeyName string, sortKeyName string, versionField string) (*GenericService, *SearchService) {
-	genericService := NewGenericService(db, tableName, modelType, partitionKeyName, sortKeyName, versionField)
-	searchService := NewSearchService(db, tableName, modelType, searchBuilder)
-	return genericService, searchService
+func NewSearchWriter(db *dynamodb.DynamoDB, tableName string, modelType reflect.Type, partitionKeyName string, sortKeyName string, versionField string, search func(ctx context.Context, m interface{}) (interface{}, int64, error)) (*Searcher, *Writer) {
+	writer := NewWriter(db, tableName, modelType, partitionKeyName, sortKeyName, versionField)
+	searcher := NewSearcher(search)
+	return searcher, writer
 }

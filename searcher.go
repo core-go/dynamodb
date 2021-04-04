@@ -2,21 +2,16 @@ package dynamodb
 
 import (
 	"context"
-	"github.com/aws/aws-sdk-go/service/dynamodb"
-	"reflect"
 )
 
-type SearchService struct {
-	Database      *dynamodb.DynamoDB
-	tableName     string
-	modelType     reflect.Type
-	searchBuilder SearchResultBuilder
+type Searcher struct {
+	search func(ctx context.Context, m interface{}) (interface{}, int64, error)
 }
 
-func NewSearchService(db *dynamodb.DynamoDB, tableName string, modelType reflect.Type, searchBuilder SearchResultBuilder) *SearchService {
-	return &SearchService{db, tableName, modelType, searchBuilder}
+func NewSearcher(search func(ctx context.Context, m interface{}) (interface{}, int64, error)) *Searcher {
+	return &Searcher{search: search}
 }
 
-func (s *SearchService) Search(ctx context.Context, m interface{}) (interface{}, int64, error) {
-	return s.searchBuilder.BuildSearchResult(ctx, s.Database, m, s.modelType, s.tableName)
+func (s *Searcher) Search(ctx context.Context, m interface{}) (interface{}, int64, error) {
+	return s.search(ctx, m)
 }

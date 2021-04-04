@@ -11,12 +11,12 @@ import (
 )
 
 type DefaultSearchResultBuilder struct {
-	QueryBuilder      QueryBuilder
+	BuildQuery        func(sm interface{}, resultModelType reflect.Type, tableName string, index SecondaryIndex) (dynamodb.QueryInput, error)
 	ExtractSearchInfo func(m interface{}) (string, int64, int64, int64, error)
 }
 
 func (b *DefaultSearchResultBuilder) BuildSearchResult(ctx context.Context, db *dynamodb.DynamoDB, m interface{}, modelType reflect.Type, tableName string, index SecondaryIndex) (interface{}, int64, error) {
-	query, er1 := b.QueryBuilder.BuildQuery(m, modelType, tableName, index)
+	query, er1 := b.BuildQuery(m, modelType, tableName, index)
 	if er1 != nil {
 		return nil, 0, er1
 	}

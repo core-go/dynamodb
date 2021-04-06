@@ -609,8 +609,8 @@ func buildKeyMap(keys []string, value interface{}) (map[string]*dynamodb.Attribu
 	return keyMap, nil
 }
 
-func buildKeyMapWithExpected(keys []string, model interface{}, isExist bool) (map[string]*dynamodb.ExpectedAttributeValue, error) {
-	values := getIdValueFromModel(model, keys)
+func buildKeyMapWithExpected(keys []string, values []interface{}, isExist bool) (map[string]*dynamodb.ExpectedAttributeValue, error) {
+	//values := getIdValueFromModel(model, keys)
 	if len(values) == 0 {
 		return nil, fmt.Errorf("cannot update one an Object that do not have ids field")
 	}

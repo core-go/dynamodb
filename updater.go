@@ -12,13 +12,20 @@ type Updater struct {
 	Map        func(ctx context.Context, model interface{}) (interface{}, error)
 }
 
-func NewUpdater(database *dynamodb.DynamoDB, tableName string,  modelType reflect.Type, options ...func(context.Context, interface{}) (interface{}, error)) *Updater {
+func NewUpdaterById(database *dynamodb.DynamoDB, tableName string,  modelType reflect.Type, fieldName string, options ...func(context.Context, interface{}) (interface{}, error)) *Updater {
 	var mp func(context.Context, interface{}) (interface{}, error)
 	if len(options) >= 1 {
 		mp = options[0]
 	}
-	_, id := mongo.FindIdField(modelType)
-	return &Updater{Map: mp, writer: NewWriter(database, tableName, modelType, id, "", "")}
+	if len(fieldName) == 0 {
+		_, idName := mongo.FindIdField(modelType)
+		fieldName = idName
+	}
+	return &Updater{Map: mp, writer: NewWriter(database, tableName, modelType, fieldName, "", "")}
+}
+
+func NewUpdater(database *dynamodb.DynamoDB, tableName string,  modelType reflect.Type, options ...func(context.Context, interface{}) (interface{}, error)) *Updater {
+	return NewUpdaterById(database, tableName, modelType, "", options...)
 }
 
 func (w *Updater) Write(ctx context.Context, model interface{}) error {

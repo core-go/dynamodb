@@ -1,8 +1,6 @@
 package dynamodb
 
-import (
-	"context"
-)
+import "context"
 
 type Searcher struct {
 	search func(ctx context.Context, m interface{}) (interface{}, int64, error)

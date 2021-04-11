@@ -2,8 +2,9 @@ package dynamodb
 
 import (
 	"context"
-	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"time"
+
+	"github.com/aws/aws-sdk-go/service/dynamodb"
 )
 
 type PasscodeService struct {

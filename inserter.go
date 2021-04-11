@@ -2,15 +2,15 @@ package dynamodb
 
 import (
 	"context"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/dynamodb"
+	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
 )
-import "github.com/aws/aws-sdk-go/aws"
-import "github.com/aws/aws-sdk-go/service/dynamodb"
-import "github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
 
 type Inserter struct {
-	DB *dynamodb.DynamoDB
+	DB        *dynamodb.DynamoDB
 	tableName string
-	Map        func(ctx context.Context, model interface{}) (interface{}, error)
+	Map       func(ctx context.Context, model interface{}) (interface{}, error)
 }
 
 func NewInserter(database *dynamodb.DynamoDB, tableName string, options ...func(context.Context, interface{}) (interface{}, error)) *Inserter {

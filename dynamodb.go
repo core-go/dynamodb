@@ -3,12 +3,12 @@ package dynamodb
 import (
 	"context"
 	"fmt"
-	"github.com/aws/aws-sdk-go/aws/credentials"
 	"reflect"
 	"strconv"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
@@ -21,25 +21,31 @@ type (
 		Keys      []string
 	}
 	Config struct {
-		Region          string `mapstructure:"region"`
-		AccessKeyID     string `mapstructure:"access_key_id"`
-		SecretAccessKey string `mapstructure:"secret_access_key"`
+		Region          string `mapstructure:"region" json:"region,omitempty" gorm:"column:region" bson:"region,omitempty" dynamodbav:"region,omitempty" firestore:"region,omitempty"`
+		AccessKeyID     string `mapstructure:"access_key_id" json:"accessKeyID,omitempty" gorm:"column:accessKeyID" bson:"accessKeyID,omitempty" dynamodbav:"accessKeyID,omitempty" firestore:"accessKeyID,omitempty"`
+		SecretAccessKey string `mapstructure:"secret_access_key" json:"secretAccessKey,omitempty" gorm:"column:secretaccesskey" bson:"secretAccessKey,omitempty" dynamodbav:"secretAccessKey,omitempty" firestore:"secretAccessKey,omitempty"`
+		Token           string `mapstructure:"token" json:"token,omitempty" gorm:"column:token" bson:"token,omitempty" dynamodbav:"token,omitempty" firestore:"token,omitempty"`
 	}
 )
 
-func Connect(config Config) (*dynamodb.DynamoDB, error) {
+func NewSession(config Config) (*session.Session, error) {
 	c := &aws.Config{
 		Region:      aws.String(config.Region),
-		Credentials: credentials.NewStaticCredentials(config.AccessKeyID, config.SecretAccessKey, ""),
+		Credentials: credentials.NewStaticCredentials(config.AccessKeyID, config.SecretAccessKey, config.Token),
 	}
-	sess, err := session.NewSession(c)
+	return session.NewSession(c)
+}
+func Connect(config Config) (*dynamodb.DynamoDB, error) {
+	sess, err := NewSession(config)
 	if err != nil {
 		return nil, err
 	}
 	db := dynamodb.New(sess)
 	return db, nil
 }
-
+func ConnectWithSession(session *session.Session) *dynamodb.DynamoDB {
+	return dynamodb.New(session)
+}
 func BuildQuery(tableName string, index SecondaryIndex, query map[string]interface{}) (*dynamodb.QueryInput, error) {
 	if query == nil {
 		query := &dynamodb.QueryInput{

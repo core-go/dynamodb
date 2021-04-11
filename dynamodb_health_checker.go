@@ -3,34 +3,41 @@ package dynamodb
 import (
 	"context"
 	"errors"
-	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"time"
+
+	"github.com/aws/aws-sdk-go/service/dynamodb"
 )
 
-type DynamodbHealthChecker struct {
+type DynamoDBHealthChecker struct {
 	db      *dynamodb.DynamoDB
 	name    string
 	timeout time.Duration
 }
 
-func NewDynamodbHealthCheckerWithTimeout(db *dynamodb.DynamoDB, name string, timeout time.Duration) *DynamodbHealthChecker {
-	return &DynamodbHealthChecker{db, name, timeout}
+func NewDynamoDBHealthChecker(db *dynamodb.DynamoDB, name string, timeouts ...time.Duration) *DynamoDBHealthChecker {
+	var timeout time.Duration
+	if len(timeouts) >= 1 {
+		timeout = timeouts[0]
+	} else {
+		timeout = 4 * time.Second
+	}
+	return &DynamoDBHealthChecker{db, name, timeout}
 }
-func NewDynamodbHealthChecker(db *dynamodb.DynamoDB, options ...string) *DynamodbHealthChecker {
+func NewHealthChecker(db *dynamodb.DynamoDB, options ...string) *DynamoDBHealthChecker {
 	var name string
-	if len(options) >= 1 && len(options[0]) > 0 {
+	if len(options) > 0 && len(options[0]) > 0 {
 		name = options[0]
 	} else {
 		name = "dynamodb"
 	}
-	return NewDynamodbHealthCheckerWithTimeout(db, name, 4 * time.Second)
+	return NewDynamoDBHealthChecker(db, name, 4 * time.Second)
 }
 
-func (s *DynamodbHealthChecker) Name() string {
+func (s *DynamoDBHealthChecker) Name() string {
 	return s.name
 }
 
-func (s *DynamodbHealthChecker) Check(ctx context.Context) (map[string]interface{}, error) {
+func (s *DynamoDBHealthChecker) Check(ctx context.Context) (map[string]interface{}, error) {
 	res := make(map[string]interface{}, 0)
 	if s.timeout > 0 {
 		ctx, _ = context.WithTimeout(ctx, s.timeout)
@@ -54,7 +61,7 @@ func (s *DynamodbHealthChecker) Check(ctx context.Context) (map[string]interface
 	}
 }
 
-func (s *DynamodbHealthChecker) Build(ctx context.Context, data map[string]interface{}, err error) map[string]interface{} {
+func (s *DynamoDBHealthChecker) Build(ctx context.Context, data map[string]interface{}, err error) map[string]interface{} {
 	if data == nil {
 		data = make(map[string]interface{}, 0)
 	}

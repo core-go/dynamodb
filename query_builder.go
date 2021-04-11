@@ -2,14 +2,15 @@ package dynamodb
 
 import (
 	"errors"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/dynamodb"
-	"github.com/aws/aws-sdk-go/service/dynamodb/expression"
-	"github.com/common-go/search"
 	"log"
 	"reflect"
 	"strings"
 	"time"
+
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/dynamodb"
+	"github.com/aws/aws-sdk-go/service/dynamodb/expression"
+	"github.com/common-go/search"
 )
 
 type QueryBuilder struct {

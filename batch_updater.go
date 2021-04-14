@@ -11,7 +11,8 @@ import (
 )
 
 type BatchUpdater struct {
-	writer *Writer
+	DB        *dynamodb.DynamoDB
+	tableName string
 	Map    func(ctx context.Context, model interface{}) (interface{}, error)
 	keys   []string
 }
@@ -25,7 +26,7 @@ func NewBatchUpdaterById(database *dynamodb.DynamoDB, tableName string, modelTyp
 		_, idName, _ := FindIdField(modelType)
 		fieldName = idName
 	}
-	return &BatchUpdater{Map: mp, writer: NewWriter(database, tableName, modelType, fieldName, "", ""), keys: keys}
+	return &BatchUpdater{Map: mp, DB: database,tableName: tableName, keys: keys}
 }
 
 func NewBatchUpdater(database *dynamodb.DynamoDB, tableName string, modelType reflect.Type, keys []string, options ...func(context.Context, interface{}) (interface{}, error)) *BatchUpdater {
@@ -43,9 +44,9 @@ func (w *BatchUpdater) Write(ctx context.Context, models interface{}) ([]int, []
 		if er0 != nil {
 			return successIndices, failIndices, er0
 		}
-		_, _, er1 = UpdateMany(ctx, w.writer.Database, w.writer.tableName, w.keys, m2)
+		_, _, er1 = UpdateMany(ctx, w.DB, w.tableName, w.keys, m2)
 	} else {
-		_, _, er1 = UpdateMany(ctx, w.writer.Database, w.writer.tableName, w.keys, models)
+		_, _, er1 = UpdateMany(ctx, w.DB, w.tableName, w.keys, models)
 	}
 	if er1 == nil {
 		for i := 0; i < s.Len(); i++ {

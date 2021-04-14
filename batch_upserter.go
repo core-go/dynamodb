@@ -9,7 +9,8 @@ import (
 )
 
 type BatchUpserter struct {
-	writer *Writer
+	DB        *dynamodb.DynamoDB
+	tableName string
 	Map    func(ctx context.Context, model interface{}) (interface{}, error)
 	keys   []string
 }
@@ -23,7 +24,7 @@ func NewBatchUpserterById(database *dynamodb.DynamoDB, tableName string, modelTy
 		_, idName, _ := FindIdField(modelType)
 		fieldName = idName
 	}
-	return &BatchUpserter{Map: mp, writer: NewWriter(database, tableName, modelType, fieldName, "", ""), keys: keys}
+	return &BatchUpserter{Map: mp,DB: database,tableName: tableName, keys: keys}
 }
 
 func NewBatchUpserter(database *dynamodb.DynamoDB, tableName string, modelType reflect.Type, keys []string, options ...func(context.Context, interface{}) (interface{}, error)) *BatchUpserter {
@@ -41,9 +42,9 @@ func (w *BatchUpserter) Write(ctx context.Context, models interface{}) ([]int, [
 		if er0 != nil {
 			return successIndices, failIndices, er0
 		}
-		_, _, er1 = UpsertMany(ctx, w.writer.Database, w.writer.tableName, w.keys, m2)
+		_, _, er1 = UpsertMany(ctx, w.DB, w.tableName, w.keys, m2)
 	} else {
-		_, _, er1 = UpsertMany(ctx, w.writer.Database, w.writer.tableName, w.keys, models)
+		_, _, er1 = UpsertMany(ctx, w.DB, w.tableName, w.keys, models)
 	}
 	if er1 == nil {
 		for i := 0; i < s.Len(); i++ {

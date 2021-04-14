@@ -8,7 +8,7 @@ import (
 )
 
 func NewSearchLoaderWithQuery(db *dynamodb.DynamoDB, tableName string, modelType reflect.Type, partitionKeyName string, sortKeyName string, buildQuery func(interface{}) (dynamodb.QueryInput, error), options...func(context.Context, interface{}) (interface{}, error)) (*Searcher, *Loader) {
-	loader := NewLoader(db, tableName, modelType, partitionKeyName, sortKeyName)
+	loader := NewLoader(db, tableName, modelType, partitionKeyName, sortKeyName, options...)
 	searcher := NewSearcherWithQuery(db, modelType, buildQuery, options...)
 	return searcher, loader
 }

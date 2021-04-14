@@ -7,6 +7,11 @@ import (
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 )
 
+type Mapper interface {
+	DbToModel(ctx context.Context, model interface{}) (interface{}, error)
+	ModelToDb(ctx context.Context, model interface{}) (interface{}, error)
+}
+
 type Writer struct {
 	*Loader
 	maps         map[string]string
@@ -14,14 +19,24 @@ type Writer struct {
 	versionIndex int
 }
 
-func NewWriter(db *dynamodb.DynamoDB, tableName string, modelType reflect.Type, partitionKeyName string, sortKeyName string, versionFieldName string) *Writer {
-	defaultViewService := NewLoader(db, tableName, modelType, partitionKeyName, sortKeyName)
+func NewWriter(db *dynamodb.DynamoDB, tableName string, modelType reflect.Type, partitionKeyName string, sortKeyName string, options ...Mapper) *Writer {
+	return NewWriterWithVersion(db, tableName, modelType, partitionKeyName, sortKeyName, "", options...)
+}
+func NewWriterWithVersion(db *dynamodb.DynamoDB, tableName string, modelType reflect.Type, partitionKeyName string, sortKeyName string, versionFieldName string, options ...Mapper) *Writer {
+	var mapper Mapper
+	var loader *Loader
+	if len(options) > 0 && options[0] != nil {
+		mapper = options[0]
+		loader = NewLoader(db, tableName, modelType, partitionKeyName, sortKeyName, mapper.DbToModel)
+	} else {
+		loader = NewLoader(db, tableName, modelType, partitionKeyName, sortKeyName)
+	}
 	if len(versionFieldName) > 0 {
 		if index, versionField, ok := GetFieldByName(modelType, versionFieldName); ok {
-			return &Writer{Loader: defaultViewService, maps: MakeMapObject(modelType), versionField: versionField, versionIndex: index}
+			return &Writer{Loader: loader, maps: MakeMapObject(modelType), versionField: versionField, versionIndex: index}
 		}
 	}
-	return &Writer{Loader: defaultViewService, maps: MakeMapObject(modelType), versionField: "", versionIndex: -1}
+	return &Writer{Loader: loader, maps: MakeMapObject(modelType), versionField: "", versionIndex: -1}
 }
 
 func (m *Writer) Insert(ctx context.Context, model interface{}) (int64, error) {

@@ -22,7 +22,7 @@ func NewUpdaterById(database *dynamodb.DynamoDB, tableName string, modelType ref
 		_, idName, _ := FindIdField(modelType)
 		fieldName = idName
 	}
-	return &Updater{Map: mp, writer: NewWriter(database, tableName, modelType, fieldName, "", "")}
+	return &Updater{Map: mp, writer: NewWriterWithVersion(database, tableName, modelType, fieldName, "", "")}
 }
 
 func NewUpdater(database *dynamodb.DynamoDB, tableName string, modelType reflect.Type, options ...func(context.Context, interface{}) (interface{}, error)) *Updater {

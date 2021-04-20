@@ -7,10 +7,10 @@ import (
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 )
 
-func NewSearchWriter(db *dynamodb.DynamoDB, tableName string, modelType reflect.Type, partitionKeyName string, sortKeyName string, buildQuery func(interface{}) (dynamodb.QueryInput, error), options ...Mapper) (*Searcher, *Writer) {
+func NewSearchWriter(db *dynamodb.DynamoDB, tableName string, modelType reflect.Type, partitionKeyName string, sortKeyName string, buildQuery func(interface{}) (dynamodb.ScanInput, error), options ...Mapper) (*Searcher, *Writer) {
 	return NewSearchWriterWithVersionAndQuery(db, tableName, modelType, partitionKeyName, sortKeyName, "", buildQuery, options...)
 }
-func NewSearchWriterWithVersionAndQuery(db *dynamodb.DynamoDB, tableName string, modelType reflect.Type, partitionKeyName string, sortKeyName string, versionField string, buildQuery func(interface{}) (dynamodb.QueryInput, error), options ...Mapper) (*Searcher, *Writer) {
+func NewSearchWriterWithVersionAndQuery(db *dynamodb.DynamoDB, tableName string, modelType reflect.Type, partitionKeyName string, sortKeyName string, versionField string, buildQuery func(interface{}) (dynamodb.ScanInput, error), options ...Mapper) (*Searcher, *Writer) {
 	var mapper Mapper
 	if len(options) > 0 && options[0] != nil {
 		mapper = options[0]

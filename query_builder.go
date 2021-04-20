@@ -28,8 +28,8 @@ func NewQueryBuilder(tableName string, resultModelType reflect.Type, index Secon
 	return &QueryBuilder{TableName: tableName, ModelType: resultModelType, Index: index}
 }
 
-func (b *QueryBuilder) BuildQuery(sm interface{}) (dynamodb.QueryInput, error) {
-	query := dynamodb.QueryInput{}
+func (b *QueryBuilder) BuildQuery(sm interface{}) (dynamodb.ScanInput, error) {
+	query := dynamodb.ScanInput{}
 	if _, ok := sm.(*search.SearchModel); ok {
 		return query, nil
 	}
@@ -73,20 +73,20 @@ func (b *QueryBuilder) BuildQuery(sm interface{}) (dynamodb.QueryInput, error) {
 						}
 					}
 				}
-			} else if len(v.Keyword) > 0 {
-				keyword = strings.TrimSpace(v.Keyword)
 			}
 			if len(v.Fields) > 0 {
+				var proj expression.ProjectionBuilder
 				for idx := range v.Fields {
-					projection := expression.NamesList(expression.Name(v.Fields[idx]))
-					projectionBuilder = &projection
+					name := expression.Name(v.Fields[idx])
+					proj = proj.AddNames(name)
+					projectionBuilder = &proj
 				}
 			}
 			continue
 		} else if ps || kind == reflect.String {
 			if _, name, ok := GetFieldByName(b.ModelType, value.Type().Field(i).Name); ok {
 				var condition expression.ConditionBuilder
-				if field.Len() > 0 {
+				if !field.IsNil() {
 					if key, ok := value.Type().Field(i).Tag.Lookup("match"); ok {
 						if key == PREFIX {
 							condition = expression.Name(name).BeginsWith(psv)
@@ -211,44 +211,66 @@ func (b *QueryBuilder) BuildQuery(sm interface{}) (dynamodb.QueryInput, error) {
 			if _, ok := x.(*search.SearchModel); t == "bool" || (strings.Contains(t, "int") && x != 0) || (strings.Contains(t, "float") && x != 0) || (!ok && t == "string" && field.Len() > 0) || (!ok && t == "ptr" &&
 				field.Pointer() != 0) {
 				if _, name, ok := GetFieldByName(b.ModelType, value.Type().Field(i).Name); ok {
-					c := expression.Not(expression.Name(name).Equal(expression.Value(x)))
+					c := expression.Name(name).Equal(expression.Value(x))
 					conditionBuilders = append(conditionBuilders, &c)
 				}
 			}
 		}
 	}
+
+	//test := conditionBuilders[0]
 	var filter *expression.ConditionBuilder
-	for idx := range conditionBuilders {
-		if filter == nil {
-			filter = conditionBuilders[idx]
-		} else {
-			filter.And(*conditionBuilders[idx])
+
+	if conditionBuilders == nil && projectionBuilder == nil {
+		query = dynamodb.ScanInput{
+			TableName: aws.String(b.TableName),
+			Select:    aws.String(dynamodb.SelectAllAttributes),
 		}
-	}
-	keyCondition, err := BuildKeyCondition(sm, b.Index, keyword)
-	if err != nil {
-		return query, err
-	}
-	builder := expression.NewBuilder().WithKeyCondition(keyCondition)
-	if projectionBuilder != nil {
-		builder.WithProjection(*projectionBuilder)
-	}
-	if filter != nil {
-		builder.WithFilter(*filter)
-	}
-	expr, err := builder.Build()
-	if err != nil {
-		return query, err
-	}
-	query = dynamodb.QueryInput{
-		TableName:                 aws.String(b.TableName),
-		IndexName:                 aws.String(b.Index.IndexName),
-		ProjectionExpression:      expr.Projection(),
-		KeyConditionExpression:    expr.KeyCondition(),
-		FilterExpression:          expr.Filter(),
-		ExpressionAttributeNames:  expr.Names(),
-		ExpressionAttributeValues: expr.Values(),
-		Select:                    aws.String(dynamodb.SelectSpecificAttributes),
+		return query, nil
+	} else if conditionBuilders == nil && projectionBuilder != nil {
+		expr, _ := expression.NewBuilder().WithProjection(*projectionBuilder).Build()
+		query = dynamodb.ScanInput{
+			TableName:                aws.String(b.TableName),
+			ProjectionExpression:     expr.Projection(),
+			ExpressionAttributeNames: expr.Names(),
+			Select:                   aws.String(dynamodb.SelectSpecificAttributes),
+		}
+		return query, nil
+	} else if conditionBuilders != nil {
+		for i := range conditionBuilders {
+			if filter == nil {
+				filter = conditionBuilders[i]
+			} else {
+				filt := filter.And(*conditionBuilders[i])
+				filter = &filt
+			}
+		}
+
+		if projectionBuilder == nil {
+			expr, _ := expression.NewBuilder().WithFilter(*filter).Build()
+			query = dynamodb.ScanInput{
+				TableName:                 aws.String(b.TableName),
+				FilterExpression:          expr.Filter(),
+				ExpressionAttributeNames:  expr.Names(),
+				ExpressionAttributeValues: expr.Values(),
+				Select:                    aws.String(dynamodb.SelectAllAttributes),
+			}
+			return query, nil
+		}
+
+		if projectionBuilder != nil {
+			expr, _ := expression.NewBuilder().WithFilter(*filter).WithProjection(*projectionBuilder).Build()
+			query = dynamodb.ScanInput{
+				TableName:                 aws.String(b.TableName),
+				ProjectionExpression:      expr.Projection(),
+				FilterExpression:          expr.Filter(),
+				ExpressionAttributeNames:  expr.Names(),
+				ExpressionAttributeValues: expr.Values(),
+				Select:                    aws.String(dynamodb.SelectSpecificAttributes),
+			}
+			return query, nil
+		}
+
 	}
 	return query, nil
 }

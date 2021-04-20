@@ -9,22 +9,25 @@ import (
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
 	"github.com/aws/aws-sdk-go/service/dynamodb/expression"
+
+	//"github.com/mitchellh/mapstructure"
+
 )
 
-func BuildSearchResult(ctx context.Context, db *dynamodb.DynamoDB, results interface{}, query dynamodb.QueryInput, pageIndex int64, pageSize int64, initPageSize int64, options...func(context.Context, interface{}) (interface{}, error)) (int64, error) {
-	var databaseQuery *dynamodb.QueryOutput
+func BuildSearchResult(ctx context.Context, db *dynamodb.DynamoDB, results interface{}, query dynamodb.ScanInput, pageIndex int64, pageSize int64, initPageSize int64, options...func(context.Context, interface{}) (interface{}, error)) (int64, error) {
+	var databaseQuery *dynamodb.ScanOutput
 	var mp func(context.Context, interface{}) (interface{}, error)
 	if len(options) > 0 && options[0] != nil {
 		mp = options[0]
 	}
 	if initPageSize > 0 && pageIndex == 1 {
 		query.SetLimit(initPageSize)
-	} else {
+	} else if pageSize > 0  {
 		query.SetLimit(pageSize)
 	}
 	pageNum := 0
-	err := db.QueryPagesWithContext(ctx, &query,
-		func(page *dynamodb.QueryOutput, lastPage bool) bool {
+	err := db.ScanPagesWithContext(ctx, &query,
+		func(page *dynamodb.ScanOutput, lastPage bool) bool {
 			pageNum++
 			if pageNum == int(pageIndex) {
 				databaseQuery = page
@@ -35,7 +38,7 @@ func BuildSearchResult(ctx context.Context, db *dynamodb.DynamoDB, results inter
 		return 0, err
 	}
 
-	err = dynamodbattribute.UnmarshalListOfMaps(databaseQuery.Items, results)
+	err = dynamodbattribute.UnmarshalListOfMaps(databaseQuery.Items, &results)
 	if err != nil {
 		return 0, err
 	}

@@ -11,7 +11,7 @@ type Searcher struct {
 	search func(ctx context.Context, searchModel interface{}, results interface{}, pageIndex int64, pageSize int64, options...int64) (int64, error)
 }
 
-func NewSearcherWithQuery(db *dynamodb.DynamoDB, modelType reflect.Type, buildQuery func(interface{}) (dynamodb.QueryInput, error), options...func(context.Context, interface{}) (interface{}, error)) *Searcher {
+func NewSearcherWithQuery(db *dynamodb.DynamoDB, modelType reflect.Type, buildQuery func(interface{}) (dynamodb.ScanInput, error), options...func(context.Context, interface{}) (interface{}, error)) *Searcher {
 	builder := NewSearchBuilder(db, modelType, buildQuery, options...)
 	return NewSearcher(builder.Search)
 }

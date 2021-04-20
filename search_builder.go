@@ -10,11 +10,11 @@ import (
 type SearchBuilder struct {
 	DB         *dynamodb.DynamoDB
 	ModelType  reflect.Type
-	BuildQuery func(m interface{}) (dynamodb.QueryInput, error)
+	BuildQuery func(m interface{}) (dynamodb.ScanInput, error)
 	Map        func(ctx context.Context, model interface{}) (interface{}, error)
 }
 
-func NewSearchBuilder(db *dynamodb.DynamoDB, modelType reflect.Type, buildQuery func(interface{}) (dynamodb.QueryInput, error), options...func(context.Context, interface{}) (interface{}, error)) *SearchBuilder {
+func NewSearchBuilder(db *dynamodb.DynamoDB, modelType reflect.Type, buildQuery func(interface{}) (dynamodb.ScanInput, error), options...func(context.Context, interface{}) (interface{}, error)) *SearchBuilder {
 	var mp func(ctx context.Context, model interface{}) (interface{}, error)
 	if len(options) > 0 && options[0] != nil {
 		mp = options[0]

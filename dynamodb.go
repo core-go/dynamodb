@@ -46,9 +46,9 @@ func Connect(config Config) (*dynamodb.DynamoDB, error) {
 func ConnectWithSession(session *session.Session) *dynamodb.DynamoDB {
 	return dynamodb.New(session)
 }
-func BuildQuery(tableName string, index SecondaryIndex, query map[string]interface{}) (*dynamodb.QueryInput, error) {
+func BuildQuery(tableName string, index SecondaryIndex, query map[string]interface{}) (*dynamodb.ScanInput, error) {
 	if query == nil {
-		query := &dynamodb.QueryInput{
+		query := &dynamodb.ScanInput{
 			TableName: aws.String(tableName),
 			Select:    aws.String(dynamodb.SelectAllAttributes),
 		}
@@ -86,10 +86,10 @@ func BuildQuery(tableName string, index SecondaryIndex, query map[string]interfa
 	if expr, err := builder.Build(); err != nil {
 		return nil, err
 	} else {
-		input := &dynamodb.QueryInput{
+		input := &dynamodb.ScanInput{
 			TableName:                 aws.String(tableName),
 			IndexName:                 aws.String(index.IndexName),
-			KeyConditionExpression:    expr.KeyCondition(),
+			//KeyConditionExpression:    expr.KeyCondition(),
 			ExpressionAttributeNames:  expr.Names(),
 			ExpressionAttributeValues: expr.Values(),
 			FilterExpression:          expr.Filter(),
@@ -117,15 +117,15 @@ func Exist(ctx context.Context, db *dynamodb.DynamoDB, tableName string, keys []
 	return true, nil
 }
 
-func Find(ctx context.Context, db *dynamodb.DynamoDB, query *dynamodb.QueryInput, modelType reflect.Type) (interface{}, error) {
+func Find(ctx context.Context, db *dynamodb.DynamoDB, query *dynamodb.ScanInput, modelType reflect.Type) (interface{}, error) {
 	modelsType := reflect.Zero(reflect.SliceOf(modelType)).Type()
 	result := reflect.New(modelsType).Interface()
 	_, err := FindAndDecode(ctx, db, query, result)
 	return result, err
 }
 
-func FindAndDecode(ctx context.Context, db *dynamodb.DynamoDB, query *dynamodb.QueryInput, result interface{}) (bool, error) {
-	output, err := db.QueryWithContext(ctx, query)
+func FindAndDecode(ctx context.Context, db *dynamodb.DynamoDB, query *dynamodb.ScanInput, result interface{}) (bool, error) {
+	output, err := db.ScanWithContext(ctx, query)
 	if err != nil {
 		return false, err
 	}

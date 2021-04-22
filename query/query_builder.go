@@ -23,7 +23,7 @@ func NewBuilder(tableName string, resultModelType reflect.Type, index d.Secondar
 	return &Builder{TableName: tableName, ModelType: resultModelType, Index: index}
 }
 
-func (b *Builder) BuildQuery(sm interface{}) (dynamodb.ScanInput, error) {
+func (b *Builder) Build(sm interface{}) (dynamodb.ScanInput, error) {
 	query := dynamodb.ScanInput{}
 	if _, ok := sm.(*search.SearchModel); ok {
 		return query, nil

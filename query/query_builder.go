@@ -24,10 +24,10 @@ func NewBuilder(tableName string, resultModelType reflect.Type, index d.Secondar
 }
 
 func (b *Builder) BuildQuery(sm interface{}) (dynamodb.ScanInput, error) {
-	return Build(b.TableName, b.ModelType, sm)
+	return Build(sm, b.ModelType, b.TableName)
 }
 
-func Build(TableName string, ModelType reflect.Type, sm interface{}) (dynamodb.ScanInput, error) {
+func Build(sm interface{}, modelType reflect.Type, tableName string) (dynamodb.ScanInput, error) {
 	query := dynamodb.ScanInput{}
 	if _, ok := sm.(*search.SearchModel); ok {
 		return query, nil
@@ -65,7 +65,7 @@ func Build(TableName string, ModelType reflect.Type, sm interface{}) (dynamodb.S
 		if v, ok := x.(*search.SearchModel); ok {
 			if len(v.Excluding) > 0 {
 				for key, val := range v.Excluding {
-					if _, name, ok := d.GetFieldByName(ModelType, key); ok {
+					if _, name, ok := d.GetFieldByName(modelType, key); ok {
 						if len(val) > 0 {
 							c := expression.Not(expression.Name(name).In(expression.Value(val)))
 							conditionBuilders = append(conditionBuilders, &c)
@@ -83,7 +83,7 @@ func Build(TableName string, ModelType reflect.Type, sm interface{}) (dynamodb.S
 			}
 			continue
 		} else if ps || kind == reflect.String {
-			if _, name, ok := d.GetFieldByName(ModelType, value.Type().Field(i).Name); ok {
+			if _, name, ok := d.GetFieldByName(modelType, value.Type().Field(i).Name); ok {
 				var condition expression.ConditionBuilder
 				if !field.IsNil() {
 					if key, ok := value.Type().Field(i).Tag.Lookup("match"); ok {
@@ -113,21 +113,21 @@ func Build(TableName string, ModelType reflect.Type, sm interface{}) (dynamodb.S
 				conditionBuilders = append(conditionBuilders, &condition)
 			}
 		} else if rangeTime, ok := x.(*search.TimeRange); ok && rangeTime != nil {
-			if _, name, ok := d.GetFieldByName(ModelType, value.Type().Field(i).Name); ok {
+			if _, name, ok := d.GetFieldByName(modelType, value.Type().Field(i).Name); ok {
 				gte := expression.Name(name).GreaterThanEqual(expression.Value(rangeTime.StartTime))
 				lt := expression.Name(name).LessThan(expression.Value(rangeTime.EndTime))
 				c := gte.And(lt)
 				conditionBuilders = append(conditionBuilders, &c)
 			}
 		} else if rangeTime, ok := x.(search.TimeRange); ok {
-			if _, name, ok := d.GetFieldByName(ModelType, value.Type().Field(i).Name); ok {
+			if _, name, ok := d.GetFieldByName(modelType, value.Type().Field(i).Name); ok {
 				gte := expression.Name(name).GreaterThanEqual(expression.Value(rangeTime.StartTime))
 				lt := expression.Name(name).LessThan(expression.Value(rangeTime.EndTime))
 				c := gte.And(lt)
 				conditionBuilders = append(conditionBuilders, &c)
 			}
 		} else if rangeDate, ok := x.(*search.DateRange); ok && rangeDate != nil {
-			if _, name, ok := d.GetFieldByName(ModelType, value.Type().Field(i).Name); ok {
+			if _, name, ok := d.GetFieldByName(modelType, value.Type().Field(i).Name); ok {
 				startDate := rangeDate.StartDate
 				endDate := rangeDate.EndDate.Add(time.Hour * 24)
 				gte := expression.Name(name).GreaterThanEqual(expression.Value(startDate))
@@ -136,7 +136,7 @@ func Build(TableName string, ModelType reflect.Type, sm interface{}) (dynamodb.S
 				conditionBuilders = append(conditionBuilders, &c)
 			}
 		} else if rangeDate, ok := x.(search.DateRange); ok {
-			if _, name, ok := d.GetFieldByName(ModelType, value.Type().Field(i).Name); ok {
+			if _, name, ok := d.GetFieldByName(modelType, value.Type().Field(i).Name); ok {
 				startDate := rangeDate.StartDate
 				endDate := rangeDate.EndDate.Add(time.Hour * 24)
 				gte := expression.Name(name).GreaterThanEqual(expression.Value(startDate))
@@ -145,7 +145,7 @@ func Build(TableName string, ModelType reflect.Type, sm interface{}) (dynamodb.S
 				conditionBuilders = append(conditionBuilders, &c)
 			}
 		} else if numberRange, ok := x.(*search.NumberRange); ok && numberRange != nil {
-			if _, name, ok := d.GetFieldByName(ModelType, value.Type().Field(i).Name); ok {
+			if _, name, ok := d.GetFieldByName(modelType, value.Type().Field(i).Name); ok {
 				var arr []*expression.ConditionBuilder
 				if numberRange.Min != nil {
 					gte := expression.Name(name).GreaterThanEqual(expression.Value(numberRange.Min))
@@ -173,7 +173,7 @@ func Build(TableName string, ModelType reflect.Type, sm interface{}) (dynamodb.S
 				conditionBuilders = append(conditionBuilders, f)
 			}
 		} else if numberRange, ok := x.(search.NumberRange); ok {
-			if _, name, ok := d.GetFieldByName(ModelType, value.Type().Field(i).Name); ok {
+			if _, name, ok := d.GetFieldByName(modelType, value.Type().Field(i).Name); ok {
 				var arr []*expression.ConditionBuilder
 				if numberRange.Min != nil {
 					gte := expression.Name(name).GreaterThanEqual(expression.Value(numberRange.Min))
@@ -201,7 +201,7 @@ func Build(TableName string, ModelType reflect.Type, sm interface{}) (dynamodb.S
 				conditionBuilders = append(conditionBuilders, f)
 			}
 		} else if kind == reflect.Slice {
-			if _, name, ok := d.GetFieldByName(ModelType, value.Type().Field(i).Name); ok {
+			if _, name, ok := d.GetFieldByName(modelType, value.Type().Field(i).Name); ok {
 				condition := expression.Name(name).In(expression.Value(x))
 				conditionBuilders = append(conditionBuilders, &condition)
 			}
@@ -209,7 +209,7 @@ func Build(TableName string, ModelType reflect.Type, sm interface{}) (dynamodb.S
 			t := kind.String()
 			if _, ok := x.(*search.SearchModel); t == "bool" || (strings.Contains(t, "int") && x != 0) || (strings.Contains(t, "float") && x != 0) || (!ok && t == "string" && field.Len() > 0) || (!ok && t == "ptr" &&
 				field.Pointer() != 0) {
-				if _, name, ok := d.GetFieldByName(ModelType, value.Type().Field(i).Name); ok {
+				if _, name, ok := d.GetFieldByName(modelType, value.Type().Field(i).Name); ok {
 					c := expression.Name(name).Equal(expression.Value(x))
 					conditionBuilders = append(conditionBuilders, &c)
 				}
@@ -222,14 +222,14 @@ func Build(TableName string, ModelType reflect.Type, sm interface{}) (dynamodb.S
 
 	if conditionBuilders == nil && projectionBuilder == nil {
 		query = dynamodb.ScanInput{
-			TableName: aws.String(TableName),
+			TableName: aws.String(tableName),
 			Select:    aws.String(dynamodb.SelectAllAttributes),
 		}
 		return query, nil
 	} else if conditionBuilders == nil && projectionBuilder != nil {
 		expr, _ := expression.NewBuilder().WithProjection(*projectionBuilder).Build()
 		query = dynamodb.ScanInput{
-			TableName:                aws.String(TableName),
+			TableName:                aws.String(tableName),
 			ProjectionExpression:     expr.Projection(),
 			ExpressionAttributeNames: expr.Names(),
 			Select:                   aws.String(dynamodb.SelectSpecificAttributes),
@@ -248,7 +248,7 @@ func Build(TableName string, ModelType reflect.Type, sm interface{}) (dynamodb.S
 		if projectionBuilder == nil {
 			expr, _ := expression.NewBuilder().WithFilter(*filter).Build()
 			query = dynamodb.ScanInput{
-				TableName:                 aws.String(TableName),
+				TableName:                 aws.String(tableName),
 				FilterExpression:          expr.Filter(),
 				ExpressionAttributeNames:  expr.Names(),
 				ExpressionAttributeValues: expr.Values(),
@@ -260,7 +260,7 @@ func Build(TableName string, ModelType reflect.Type, sm interface{}) (dynamodb.S
 		if projectionBuilder != nil {
 			expr, _ := expression.NewBuilder().WithFilter(*filter).WithProjection(*projectionBuilder).Build()
 			query = dynamodb.ScanInput{
-				TableName:                 aws.String(TableName),
+				TableName:                 aws.String(tableName),
 				ProjectionExpression:      expr.Projection(),
 				FilterExpression:          expr.Filter(),
 				ExpressionAttributeNames:  expr.Names(),

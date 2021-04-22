@@ -15,6 +15,12 @@ import (
 	"github.com/aws/aws-sdk-go/service/dynamodb/expression"
 )
 
+const (
+	PREFIX  = "prefix"
+	CONTAIN = "contain"
+	EQUAL   = "equal"
+)
+
 type (
 	SecondaryIndex struct {
 		IndexName string
@@ -231,13 +237,9 @@ func FindOneAndReturnMapData(ctx context.Context, db *dynamodb.DynamoDB, tableNa
 }
 
 func InsertOne(ctx context.Context, db *dynamodb.DynamoDB, tableName string, keys []string, model interface{}) (int64, error) {
-	ids := getIdValueFromModel(model, keys)
-	isExit, err := Exist(ctx, db, tableName, keys, ids)
-	if err != nil {
-		return 0, err
-	}
-	if isExit {
-		return 0, nil
+	var strWhere string
+	if len(keys) > 0 {
+		strWhere = fmt.Sprintf("attribute_not_exists(%s)", strings.Join(keys, ","))
 	}
 	modelMap, err := dynamodbattribute.MarshalMap(model)
 	if err != nil {
@@ -246,25 +248,24 @@ func InsertOne(ctx context.Context, db *dynamodb.DynamoDB, tableName string, key
 	params := &dynamodb.PutItemInput{
 		TableName:              aws.String(tableName),
 		Item:                   modelMap,
+		ConditionExpression: 	aws.String(strWhere),
 		ReturnConsumedCapacity: aws.String(dynamodb.ReturnConsumedCapacityTotal),
 	}
 	output, err := db.PutItemWithContext(ctx, params)
 	if err != nil {
+		if strings.Index(err.Error(), "ConditionalCheckFailedException:") >= 0 {
+			return 0, fmt.Errorf("object exist")
+		}
 		return 0, err
 	}
 	return int64(aws.Float64Value(output.ConsumedCapacity.CapacityUnits)), nil
 }
 
 func InsertOneWithVersion(ctx context.Context, db *dynamodb.DynamoDB, tableName string, keys []string, model interface{}, versionIndex int, versionField string) (int64, error) {
-	ids := getIdValueFromModel(model, keys)
-	isExit, err := Exist(ctx, db, tableName, keys, ids)
-	if err != nil {
-		return 0, err
+	var strWhere string
+	if len(keys) > 0 {
+		strWhere = fmt.Sprintf("attribute_not_exists(%s)", strings.Join(keys, ","))
 	}
-	if isExit {
-		return 0, nil
-	}
-
 	modelType := reflect.Indirect(reflect.ValueOf(model)).Type()
 	versionType := modelType.Field(versionIndex).Type.String()
 	if ok := strings.Contains(versionType, "int"); !ok {
@@ -278,10 +279,14 @@ func InsertOneWithVersion(ctx context.Context, db *dynamodb.DynamoDB, tableName 
 	params := &dynamodb.PutItemInput{
 		TableName:              aws.String(tableName),
 		Item:                   modelMap,
+		ConditionExpression: 	aws.String(strWhere),
 		ReturnConsumedCapacity: aws.String(dynamodb.ReturnConsumedCapacityTotal),
 	}
 	output, err := db.PutItemWithContext(ctx, params)
 	if err != nil {
+		if strings.Index(err.Error(), "ConditionalCheckFailedException:") >= 0 {
+			return 0, fmt.Errorf("object exist")
+		}
 		return 0, err
 	}
 	return int64(aws.Float64Value(output.ConsumedCapacity.CapacityUnits)), nil
@@ -359,18 +364,26 @@ func UpdateOneWithVersion(ctx context.Context, db *dynamodb.DynamoDB, tableName 
 	return int64(aws.Float64Value(output.ConsumedCapacity.CapacityUnits)), nil
 }
 
-func UpsertOne(ctx context.Context, db *dynamodb.DynamoDB, tableName string, model interface{}) (int64, error) {
+func UpsertOne(ctx context.Context, db *dynamodb.DynamoDB, tableName string, keys []string, model interface{}) (int64, error) {
 	modelMap, err := dynamodbattribute.MarshalMap(model)
 	if err != nil {
 		return 0, err
 	}
+	var strWhere string
+	if len(keys) > 0 {
+		strWhere = fmt.Sprintf("attribute_exists(%s)", strings.Join(keys, ","))
+	}
 	params := &dynamodb.PutItemInput{
 		TableName:              aws.String(tableName),
 		Item:                   modelMap,
+		ConditionExpression: 	aws.String(strWhere),
 		ReturnConsumedCapacity: aws.String(dynamodb.ReturnConsumedCapacityTotal),
 	}
 	output, err := db.PutItemWithContext(ctx, params)
 	if err != nil {
+		if strings.Index(err.Error(), "ConditionalCheckFailedException:") >= 0 {
+			return 0, fmt.Errorf("object not found")
+		}
 		return 0, err
 	}
 	return int64(aws.Float64Value(output.ConsumedCapacity.CapacityUnits)), nil

@@ -2,31 +2,24 @@ package dynamodb
 
 import (
 	"context"
+	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"reflect"
 	"strings"
-
-	"github.com/aws/aws-sdk-go/service/dynamodb"
 )
 
 type Updater struct {
-	writer *Writer
+	DB        	*dynamodb.DynamoDB
+	tableName 	string
+	keys   		[]string
 	Map    func(ctx context.Context, model interface{}) (interface{}, error)
 }
 
-func NewUpdaterById(database *dynamodb.DynamoDB, tableName string, modelType reflect.Type, fieldName string, options ...func(context.Context, interface{}) (interface{}, error)) *Updater {
+func NewUpdater(database *dynamodb.DynamoDB, tableName string, keys []string, options ...func(context.Context, interface{}) (interface{}, error)) *Updater {
 	var mp func(context.Context, interface{}) (interface{}, error)
 	if len(options) >= 1 {
 		mp = options[0]
 	}
-	if len(fieldName) == 0 {
-		_, idName, _ := FindIdField(modelType)
-		fieldName = idName
-	}
-	return &Updater{Map: mp, writer: NewWriterWithVersion(database, tableName, modelType, fieldName, "", "")}
-}
-
-func NewUpdater(database *dynamodb.DynamoDB, tableName string, modelType reflect.Type, options ...func(context.Context, interface{}) (interface{}, error)) *Updater {
-	return NewUpdaterById(database, tableName, modelType, "", options...)
+	return &Updater{DB: database, tableName: tableName, keys: keys, Map: mp}
 }
 
 func (w *Updater) Write(ctx context.Context, model interface{}) error {
@@ -40,8 +33,8 @@ func (w *Updater) Write(ctx context.Context, model interface{}) error {
 	} else {
 		modelNew = model
 	}
-	_, error := w.writer.Update(ctx, modelNew)
-	return error
+	_ ,err = UpdateOne(ctx, w.DB, w.tableName, w.keys, modelNew)
+	return err
 }
 
 func FindIdField(modelType reflect.Type) (int, string, string) {

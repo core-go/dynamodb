@@ -40,7 +40,7 @@ func (p *PasscodeRepository) Save(ctx context.Context, id string, passcode strin
 	pass[p.idName] = id
 	pass[p.passcodeName] = passcode
 	pass[p.expiredAtName] = expiredAt
-	return UpsertOne(ctx, p.Database, p.tableName, pass)
+	return UpsertOne(ctx, p.Database, p.tableName, []string{p.idName}, pass)
 }
 
 func (p *PasscodeRepository) Load(ctx context.Context, id string) (string, time.Time, error) {

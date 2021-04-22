@@ -63,7 +63,7 @@ func (m *Writer) Save(ctx context.Context, model interface{}) (int64, error) {
 	if m.versionIndex >= 0 {
 		return UpsertOneWithVersion(ctx, m.Database, m.tableName, m.Keys(), model, m.versionIndex, m.versionField)
 	}
-	return UpsertOne(ctx, m.Database, m.tableName, model)
+	return UpsertOne(ctx, m.Database, m.tableName, m.Keys(), model)
 }
 
 func (m *Writer) Delete(ctx context.Context, id interface{}) (int64, error) {

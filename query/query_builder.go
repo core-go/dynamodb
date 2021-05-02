@@ -1,16 +1,15 @@
 package query
 
 import (
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/dynamodb"
+	"github.com/aws/aws-sdk-go/service/dynamodb/expression"
+	d "github.com/core-go/dynamodb"
+	"github.com/core-go/search"
 	"log"
 	"reflect"
 	"strings"
 	"time"
-
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/dynamodb"
-	"github.com/aws/aws-sdk-go/service/dynamodb/expression"
-	d "github.com/common-go/dynamodb"
-	"github.com/common-go/search"
 )
 
 type Builder struct {

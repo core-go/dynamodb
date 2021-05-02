@@ -3,15 +3,11 @@ package dynamodb
 import (
 	"context"
 	"fmt"
-	"reflect"
-	"strings"
-
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
 	"github.com/aws/aws-sdk-go/service/dynamodb/expression"
-
-	//"github.com/mitchellh/mapstructure"
-
+	"reflect"
+	"strings"
 )
 
 func BuildSearchResult(ctx context.Context, db *dynamodb.DynamoDB, results interface{}, query dynamodb.ScanInput, pageIndex int64, pageSize int64, initPageSize int64, options...func(context.Context, interface{}) (interface{}, error)) (int64, error) {

@@ -2,10 +2,9 @@ package dynamodb
 
 import (
 	"context"
+	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"log"
 	"reflect"
-
-	"github.com/aws/aws-sdk-go/service/dynamodb"
 )
 
 type Loader struct {

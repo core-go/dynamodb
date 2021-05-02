@@ -2,9 +2,8 @@ package dynamodb
 
 import (
 	"context"
-	"reflect"
-
 	"github.com/aws/aws-sdk-go/service/dynamodb"
+	"reflect"
 )
 
 type Searcher struct {

@@ -2,9 +2,8 @@ package dynamodb
 
 import (
 	"context"
-	"reflect"
-
 	"github.com/aws/aws-sdk-go/service/dynamodb"
+	"reflect"
 )
 
 func NewSearchWriter(db *dynamodb.DynamoDB, tableName string, modelType reflect.Type, partitionKeyName string, sortKeyName string, buildQuery func(interface{}) (dynamodb.ScanInput, error), options ...Mapper) (*Searcher, *Writer) {

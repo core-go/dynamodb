@@ -62,14 +62,10 @@ func Build(sm interface{}, modelType reflect.Type, tableName string) (dynamodb.S
 			psv = s0
 		}
 		if v, ok := x.(*search.SearchModel); ok {
-			if len(v.Excluding) > 0 {
-				for key, val := range v.Excluding {
-					if _, name, ok := d.GetFieldByName(modelType, key); ok {
-						if len(val) > 0 {
-							c := expression.Not(expression.Name(name).In(expression.Value(val)))
-							conditionBuilders = append(conditionBuilders, &c)
-						}
-					}
+			if v.Excluding != nil && len(v.Excluding) > 0 {
+				if _, _, name, ok := getFieldByBson(modelType, "_id"); ok {
+					c := expression.Not(expression.Name(name).In(expression.Value(v.Excluding)))
+					conditionBuilders = append(conditionBuilders, &c)
 				}
 			}
 			if len(v.Fields) > 0 {
@@ -127,8 +123,8 @@ func Build(sm interface{}, modelType reflect.Type, tableName string) (dynamodb.S
 			}
 		} else if rangeDate, ok := x.(*search.DateRange); ok && rangeDate != nil {
 			if _, name, ok := d.GetFieldByName(modelType, value.Type().Field(i).Name); ok {
-				startDate := rangeDate.StartDate
-				endDate := rangeDate.EndDate.Add(time.Hour * 24)
+				startDate := rangeDate.Min
+				endDate := rangeDate.Max.Add(time.Hour * 24)
 				gte := expression.Name(name).GreaterThanEqual(expression.Value(startDate))
 				lt := expression.Name(name).LessThan(expression.Value(endDate))
 				c := gte.And(lt)
@@ -136,8 +132,8 @@ func Build(sm interface{}, modelType reflect.Type, tableName string) (dynamodb.S
 			}
 		} else if rangeDate, ok := x.(search.DateRange); ok {
 			if _, name, ok := d.GetFieldByName(modelType, value.Type().Field(i).Name); ok {
-				startDate := rangeDate.StartDate
-				endDate := rangeDate.EndDate.Add(time.Hour * 24)
+				startDate := rangeDate.Min
+				endDate := rangeDate.Max.Add(time.Hour * 24)
 				gte := expression.Name(name).GreaterThanEqual(expression.Value(startDate))
 				lt := expression.Name(name).LessThan(expression.Value(endDate))
 				c := gte.And(lt)
@@ -271,4 +267,23 @@ func Build(sm interface{}, modelType reflect.Type, tableName string) (dynamodb.S
 
 	}
 	return query, nil
+}
+func getFieldByBson(modelType reflect.Type, bsonName string) (int, string, string, bool) {
+	numField := modelType.NumField()
+	for index := 0; index < numField; index++ {
+		field := modelType.Field(index)
+		tag1, ok1 := field.Tag.Lookup("bson")
+		if ok1 && strings.Split(tag1, ",")[0] == bsonName {
+			if dynamodbTag, ok := field.Tag.Lookup("dynamodbav"); ok {
+				name := strings.Split(dynamodbTag, ",")[0]
+				return index, field.Name, name, true
+			}
+			if jsonTag, ok := field.Tag.Lookup("json"); ok {
+				name := strings.Split(jsonTag, ",")[0]
+				return index, field.Name, name, true
+			}
+		}
+
+	}
+	return -1, "", "", false
 }

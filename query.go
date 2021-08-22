@@ -10,17 +10,20 @@ import (
 	"strings"
 )
 
-func BuildSearchResult(ctx context.Context, db *dynamodb.DynamoDB, results interface{}, query dynamodb.ScanInput, pageIndex int64, pageSize int64, initPageSize int64, options...func(context.Context, interface{}) (interface{}, error)) (int64, error) {
+func BuildSearchResult(ctx context.Context, db *dynamodb.DynamoDB, results interface{}, query dynamodb.ScanInput, limit int64, pageIndex int64, options ...func(context.Context, interface{}) (interface{}, error)) (int64, error) {
 	var databaseQuery *dynamodb.ScanOutput
 	var mp func(context.Context, interface{}) (interface{}, error)
 	if len(options) > 0 && options[0] != nil {
 		mp = options[0]
 	}
-	if initPageSize > 0 && pageIndex == 1 {
-		query.SetLimit(initPageSize)
-	} else if pageSize > 0  {
-		query.SetLimit(pageSize)
+	if pageIndex < 1 {
+		pageIndex = 1
 	}
+	if limit <= 0 {
+		_, er0 := FindAndDecode(ctx, db, &query, results)
+		return 0, er0
+	}
+	query.SetLimit(limit)
 	pageNum := 0
 	err := db.ScanPagesWithContext(ctx, &query,
 		func(page *dynamodb.ScanOutput, lastPage bool) bool {
@@ -109,7 +112,7 @@ func MapModels(ctx context.Context, models interface{}, mp func(context.Context,
 			if k == reflect.Struct {
 				y := x.Addr().Interface()
 				mp(ctx, y)
-			} else  {
+			} else {
 				y := x.Interface()
 				mp(ctx, y)
 			}

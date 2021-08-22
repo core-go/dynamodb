@@ -24,7 +24,7 @@ func NewSearchWriterWithVersionAndQuery(db *dynamodb.DynamoDB, tableName string,
 		return searcher, writer
 	}
 }
-func NewSearchWriterWithVersion(db *dynamodb.DynamoDB, tableName string, modelType reflect.Type, partitionKeyName string, sortKeyName string, versionField string, search func(context.Context, interface{}, interface{}, int64, int64, ...int64) (int64, error)) (*Searcher, *Writer) {
+func NewSearchWriterWithVersion(db *dynamodb.DynamoDB, tableName string, modelType reflect.Type, partitionKeyName string, sortKeyName string, versionField string, search func(context.Context, interface{}, interface{}, int64, ...int64) (int64, string, error)) (*Searcher, *Writer) {
 	writer := NewWriterWithVersion(db, tableName, modelType, partitionKeyName, sortKeyName, versionField)
 	searcher := NewSearcher(search)
 	return searcher, writer

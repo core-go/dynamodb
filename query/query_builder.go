@@ -28,7 +28,7 @@ func (b *Builder) BuildQuery(sm interface{}) (dynamodb.ScanInput, error) {
 
 func Build(sm interface{}, modelType reflect.Type, tableName string) (dynamodb.ScanInput, error) {
 	query := dynamodb.ScanInput{}
-	if _, ok := sm.(*search.SearchModel); ok {
+	if _, ok := sm.(*search.Filter); ok {
 		return query, nil
 	}
 	var conditionBuilders []*expression.ConditionBuilder
@@ -61,7 +61,7 @@ func Build(sm interface{}, modelType reflect.Type, tableName string) (dynamodb.S
 			}
 			psv = s0
 		}
-		if v, ok := x.(*search.SearchModel); ok {
+		if v, ok := x.(*search.Filter); ok {
 			if v.Excluding != nil && len(v.Excluding) > 0 {
 				if _, _, name, ok := getFieldByBson(modelType, "_id"); ok {
 					c := expression.Not(expression.Name(name).In(expression.Value(v.Excluding)))
@@ -202,7 +202,7 @@ func Build(sm interface{}, modelType reflect.Type, tableName string) (dynamodb.S
 			}
 		} else {
 			t := kind.String()
-			if _, ok := x.(*search.SearchModel); t == "bool" || (strings.Contains(t, "int") && x != 0) || (strings.Contains(t, "float") && x != 0) || (!ok && t == "string" && field.Len() > 0) || (!ok && t == "ptr" &&
+			if _, ok := x.(*search.Filter); t == "bool" || (strings.Contains(t, "int") && x != 0) || (strings.Contains(t, "float") && x != 0) || (!ok && t == "string" && field.Len() > 0) || (!ok && t == "ptr" &&
 				field.Pointer() != 0) {
 				if _, name, ok := d.GetFieldByName(modelType, value.Type().Field(i).Name); ok {
 					c := expression.Name(name).Equal(expression.Value(x))

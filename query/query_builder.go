@@ -53,6 +53,8 @@ func Build(sm interface{}, modelType reflect.Type, tableName string) (dynamodb.S
 				ps = true
 				psv = *s0
 			}
+			field = field.Elem()
+			kind = field.Kind()
 		}
 		s0, ok0 := x.(string)
 		if ok0 {
@@ -61,6 +63,7 @@ func Build(sm interface{}, modelType reflect.Type, tableName string) (dynamodb.S
 			}
 			psv = s0
 		}
+		ks := kind.String()
 		if v, ok := x.(*search.Filter); ok {
 			if v.Excluding != nil && len(v.Excluding) > 0 {
 				if _, _, name, ok := getFieldByBson(modelType, "_id"); ok {
@@ -77,7 +80,7 @@ func Build(sm interface{}, modelType reflect.Type, tableName string) (dynamodb.S
 				}
 			}
 			continue
-		} else if ps || kind == reflect.String {
+		} else if ps || ks == "string" {
 			if _, name, ok := d.GetFieldByName(modelType, value.Type().Field(i).Name); ok {
 				var condition expression.ConditionBuilder
 				if !field.IsNil() {
